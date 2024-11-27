@@ -11,8 +11,6 @@
         * Released under the MIT License
         * See the full license text at the bottom of this file.
         */
-
-        /* Your CSS code */
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
 
         body {
@@ -491,7 +489,6 @@
 <body>
     <h1>⧉ LSB Steganography Tool</h1>
     <div id="messageBox"></div>
-
     <section>
         <h2>Read And Decode Data From Encoded Image</h2>
         <label for="uploadImageRead">Upload Image</label>
@@ -506,37 +503,26 @@
         </div>
         <p id="decodedMessage">Decoded Message: <span></span></p>
     </section>
-
-
     <section>
         <h2>Write Image With Encoded Data</h2>
-
-
         <label for="uploadImageWrite">Source Image</label>
         <input type="file" id="uploadImageWrite" accept="image/*">
-
-
         <input type="password" id="passwordInput" placeholder="Enter Password (Optional)">
-
         <textarea id="messageInput" placeholder="Enter Message"></textarea>
-
         <label for="uploadFile">Upload File</label>
         <input type="file" id="uploadFile" accept="*">
-
         <table class="size-info">
             <tr>
                 <td>Message Size:</td>
                 <td><span id="messageSize">0</span> bytes</td>
             </tr>
         </table>
-
         <table class="size-info">
             <tr>
                 <td>File Size:</td>
                 <td><span id="fileSize">0</span> bytes</td>
             </tr>
         </table>
-
         <table class="size-info">
             <tr id="totalDataSizeLine">
                 <td>Total Data Size:</td>
@@ -552,7 +538,6 @@
         <div class="capacity-bar">
             <div class="capacity-fill" id="capacityFill"></div>
         </div>
-
         <div class="settings-group">
             <label>Encoding Color Channels:</label>
             <div id="channelSelection">
@@ -560,35 +545,25 @@
                 <label><input type="checkbox" id="channelGreen"> Green</label>
                 <label><input type="checkbox" id="channelBlue"> Blue</label>
             </div>
-
             <label for="bitDepth">Bit Depth Per Channel:</label>
             <input type="number" id="bitDepth" value="1" min="1" max="16">
-
             <label><input type="checkbox" id="fillRandomData"> Fill remaining space with random data</label>
-
         </div>
-
-
         <div class="button-container">
             <button id="encodeButton" disabled>Encode Data</button>
         </div>
         <div class="download-container">
             <a id="downloadLink" style="display: none;">Download Encoded Image</a>
         </div>
-
-
         <button id="toggleImagesButton">Show Images</button>
-
         <div id="imagesSection">
             <div class="image-display">
-
                 <div class="image-container">
                     <h3>Original Image</h3>
                     <div class="canvas-container">
                         <canvas id="originalCanvas"></canvas>
                     </div>
                 </div>
-
                 <div class="image-container">
                     <h3>Difference</h3>
                     <div class="canvas-container">
@@ -598,231 +573,97 @@
                     <label for="amplificationSlider">Amplification Factor: <span
                             id="amplificationValue">16</span></label>
                 </div>
-
                 <div class="image-container">
                     <h3>Encoded Image</h3>
                     <div class="canvas-container">
                         <canvas id="encodedCanvas"></canvas>
                     </div>
                 </div>
-
             </div>
         </div>
     </section>
-
     <div id="spinner">Processing...</div>
     <canvas id="canvas" style="display: none;"></canvas>
-
     <script>
-
         /*
         * LSB Steganography Tool
         * Copyright (c) 2024 derbydefi
         * Released under the MIT License
         * See the full license text at the bottom of this file.
         */
-
         const canvas = document.getElementById( 'canvas' );
         const ctx = canvas.getContext( '2d' );
         let maxDataSize = 0;
         let amplificationFactor = 16; // Default value
-
         let uploadedFileData = null;
-
+        let originalImageData = null;
+        let encodedImageData = null;
         const originalCanvas = document.getElementById( 'originalCanvas' );
         const originalCtx = originalCanvas.getContext( '2d' );
-
         const encodedCanvas = document.getElementById( 'encodedCanvas' );
         const encodedCtx = encodedCanvas.getContext( '2d' );
-
         const differenceCanvas = document.getElementById( 'differenceCanvas' );
         const differenceCtx = differenceCanvas.getContext( '2d' );
 
-        let originalImageData = null;
-        let encodedImageData = null;
-
-
-        // Get references to the toggle button and images section
+        // UI Elements
         const toggleImagesButton = document.getElementById( 'toggleImagesButton' );
         const imagesSection = document.getElementById( 'imagesSection' );
-        // Initialize button text
+        const spinner = document.getElementById( 'spinner' );
+        const messageBox = document.getElementById( 'messageBox' );
+        const decodeButton = document.getElementById( 'decodeButton' );
+        const encodeButton = document.getElementById( 'encodeButton' );
+        const downloadDecodedFile = document.getElementById( 'downloadDecodedFile' );
+        const downloadLink = document.getElementById( 'downloadLink' );
+        const amplificationSlider = document.getElementById( 'amplificationSlider' );
+        const amplificationValue = document.getElementById( 'amplificationValue' );
+        const fillRandomDataCheckbox = document.getElementById( 'fillRandomData' );
+        const channelRed = document.getElementById( 'channelRed' );
+        const channelGreen = document.getElementById( 'channelGreen' );
+        const channelBlue = document.getElementById( 'channelBlue' );
+        const bitDepthInput = document.getElementById( 'bitDepth' );
+        const messageInput = document.getElementById( 'messageInput' );
+        const uploadFileInput = document.getElementById( 'uploadFile' );
+        const uploadImageWriteInput = document.getElementById( 'uploadImageWrite' );
+        const uploadImageReadInput = document.getElementById( 'uploadImageRead' );
+        const decodedMessage = document.getElementById( 'decodedMessage' );
+        const messageSizeSpan = document.getElementById( 'messageSize' );
+        const fileSizeSpan = document.getElementById( 'fileSize' );
+        const totalDataSizeSpan = document.getElementById( 'totalDataSize' );
+        const maxBytesSpan = document.querySelector( '#maxBytes span' );
+        const capacityFill = document.getElementById( 'capacityFill' );
+        const totalDataSizeLine = document.getElementById( 'totalDataSizeLine' );
+
         toggleImagesButton.textContent = 'Show Images';
 
-        // Event listener for toggle button
-        toggleImagesButton.addEventListener( 'click', toggleImagesSection );
-        // Function to toggle images section
-        function toggleImagesSection ()
+
+        function generateRandomBytes ( size )
         {
-            if ( imagesSection.classList.contains( 'show' ) )
+            const MAX_BYTES = 65536; // Maximum bytes per call
+            const bytes = new Uint8Array( size );
+            let generated = 0;
+
+            while ( generated < size )
             {
-                imagesSection.classList.remove( 'show' );
-                toggleImagesButton.textContent = 'Show Images';
-            } else
-            {
-                imagesSection.classList.add( 'show' );
-                toggleImagesButton.textContent = 'Hide Images';
+                const chunkSize = Math.min( MAX_BYTES, size - generated );
+                const chunk = new Uint8Array( chunkSize );
+                crypto.getRandomValues( chunk );
+                bytes.set( chunk, generated );
+                generated += chunkSize;
             }
+
+            return bytes;
         }
 
-        function showSpinner ()
+        function encodeText ( text )
         {
-            document.getElementById( 'spinner' ).style.display = 'block';
+            return new TextEncoder().encode( text );
         }
 
-        function hideSpinner ()
+        function decodeText ( data )
         {
-            document.getElementById( 'spinner' ).style.display = 'none';
-        }
-        // messageBox.style.display = 'none';
-
-        function showMessage ( text, isError = true )
-        {
-            const messageBox = document.getElementById( 'messageBox' );
-            messageBox.className = isError ? 'error' : 'success';
-            messageBox.textContent = text;
-            messageBox.style.display = 'block';
-
-            // Start fade-out after 4 seconds (display duration)
-            setTimeout( () =>
-            {
-                messageBox.classList.add( 'fade-out' );
-            }, 4000 );
-
-            // Hide after 5 seconds (allowing 1 second for fade-out)
-            setTimeout( () =>
-            {
-                messageBox.style.display = 'none';
-                messageBox.classList.remove( 'fade-out' );
-            }, 5000 );
+            return new TextDecoder().decode( data );
         }
 
-
-        function clearMessage ()
-        {
-            const messageBox = document.getElementById( 'messageBox' );
-            messageBox.textContent = '';
-            messageBox.style.display = 'none';
-            messageBox.classList.remove( 'fade-out' );
-        }
-
-        // Get the value of the new checkbox
-        function isFillRandomDataEnabled ()
-        {
-            return document.getElementById( 'fillRandomData' ).checked;
-        }
-
-        function getSelectedChannels ()
-        {
-            const channels = [];
-            if ( document.getElementById( 'channelRed' ).checked ) channels.push( 'R' );
-            if ( document.getElementById( 'channelGreen' ).checked ) channels.push( 'G' );
-            if ( document.getElementById( 'channelBlue' ).checked ) channels.push( 'B' );
-            return channels;
-        }
-
-        function getBitDepth ()
-        {
-            const bitDepth = parseInt( document.getElementById( 'bitDepth' ).value );
-            return Math.min( Math.max( bitDepth, 1 ), 16 ); // Ensure bit depth is between 1 and 4
-        }
-
-        function updateEncodeButtonState ()
-        {
-            const imageUploaded = document.getElementById( 'uploadImageWrite' ).files.length > 0;
-            const messageProvided = document.getElementById( 'messageInput' ).value.length > 0 || uploadedFileData;
-            const messageSize = parseInt( document.getElementById( 'messageSize' ).textContent ) || 0;
-            const fileSize = parseInt( document.getElementById( 'fileSize' ).textContent ) || 0;
-            const totalDataSize = messageSize + fileSize;
-
-            const canEncode = imageUploaded && messageProvided && ( totalDataSize <= maxDataSize );
-            document.getElementById( 'encodeButton' ).disabled = !canEncode;
-        }
-
-        function updateDecodeButtonState ()
-        {
-            const imageUploaded = document.getElementById( 'uploadImageRead' ).files.length > 0;
-            document.getElementById( 'decodeButton' ).disabled = !imageUploaded;
-        }
-
-        document.getElementById( 'amplificationSlider' ).addEventListener( 'input', () =>
-        {
-            amplificationFactor = parseInt( document.getElementById( 'amplificationSlider' ).value );
-            document.getElementById( 'amplificationValue' ).textContent = amplificationFactor;
-
-            // Re-render the difference image
-            if ( originalImageData && encodedImageData )
-            {
-                renderDifferenceImage( originalImageData, encodedImageData );
-            }
-        } );
-
-
-        // Function to read the uploaded image and decode the message or file
-        document.getElementById( 'decodeButton' ).addEventListener( 'click', async () =>
-        {
-            clearMessage();
-            showSpinner();
-            try
-            {
-                const fileInput = document.getElementById( 'uploadImageRead' );
-                const password = document.getElementById( 'passwordInputDecode' ).value;
-
-                if ( !fileInput.files.length )
-                {
-                    showMessage( 'Please upload an image.' );
-                    return;
-                }
-                const file = fileInput.files[ 0 ];
-                const reader = new FileReader();
-                reader.onload = () =>
-                {
-                    const img = new Image();
-                    img.onload = async () =>
-                    {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage( img, 0, 0 );
-                        const imageData = ctx.getImageData( 0, 0, img.width, img.height );
-                        const result = await decodeData( imageData.data, password );
-
-                        if ( !result ) return;
-
-                        if ( result.text )
-                        {
-                            document.getElementById( 'decodedMessage' ).style.display = 'block';
-                            document.getElementById( 'decodedMessage' ).querySelector( 'span' ).textContent = result.text;
-                        } else
-                        {
-                            document.getElementById( 'decodedMessage' ).style.display = 'none';
-                        }
-
-                        if ( result.file )
-                        {
-                            const blob = new Blob( [ result.file.content ], { type: result.file.mimeType } );
-                            const url = URL.createObjectURL( blob );
-                            const downloadLink = document.getElementById( 'downloadDecodedFile' );
-                            downloadLink.style.display = 'inline';
-                            downloadLink.href = url;
-                            downloadLink.download = result.file.fileName;
-                            downloadLink.textContent = `Download Decoded File (${ result.file.fileName })`;
-                        } else
-                        {
-                            document.getElementById( 'downloadDecodedFile' ).style.display = 'none';
-                        }
-                    };
-                    img.src = reader.result;
-                };
-                reader.readAsDataURL( file );
-            } catch ( error )
-            {
-                showMessage( 'An error occurred during decoding.' );
-            } finally
-            {
-                hideSpinner();
-            }
-        } );
-
-        // Function to decode message and/or file from LSB
         async function decodeData ( data, password )
         {
             let dataIndex = 0;
@@ -953,243 +794,9 @@
             return result;
         }
 
-        // Function to upload image and encode a message and/or file
-        document.getElementById( 'encodeButton' ).addEventListener( 'click', async () =>
-        {
-            clearMessage();
-            showSpinner();
-            try
-            {
-                const fileInput = document.getElementById( 'uploadImageWrite' );
-                const message = document.getElementById( 'messageInput' ).value;
-                const password = document.getElementById( 'passwordInput' ).value;
-
-                if ( !fileInput.files.length )
-                {
-                    showMessage( 'Please upload an image.' );
-                    return;
-                }
-
-                if ( !message && !uploadedFileData )
-                {
-                    showMessage( 'Please enter a message or upload a file to encode.' );
-                    return;
-                }
-
-                const file = fileInput.files[ 0 ];
-                const reader = new FileReader();
-                reader.onload = () =>
-                {
-                    const img = new Image();
-                    img.onload = async () =>
-                    {
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage( img, 0, 0 );
-                        const imageData = ctx.getImageData( 0, 0, img.width, img.height );
-                        // Copy the original image data
-                        originalImageData = new ImageData(
-                            new Uint8ClampedArray( imageData.data ),
-                            imageData.width,
-                            imageData.height
-                        );
-
-                        await encodeData( imageData.data, message, uploadedFileData, password );
-                        ctx.putImageData( imageData, 0, 0 );
-                        encodedImageData = ctx.getImageData( 0, 0, img.width, img.height );
-
-                        // Render the encoded image on encodedCanvas
-                        encodedCanvas.width = img.width;
-                        encodedCanvas.height = img.height;
-                        encodedCtx.putImageData( encodedImageData, 0, 0 );
-
-                        // Compute and render the difference image
-                        renderDifferenceImage( originalImageData, encodedImageData );
-
-                        const encodedImage = canvas.toDataURL( 'image/png' );
-                        const downloadLink = document.getElementById( 'downloadLink' );
-                        downloadLink.style.display = 'inline';
-                        downloadLink.href = encodedImage;
-                        downloadLink.download = 'encoded-image.png';
-                        downloadLink.textContent = 'Download Encoded Image';
-                        showMessage( 'Encoding completed successfully!', false );
-                        // Automatically show the images section after encoding
-                        if ( !imagesSection.classList.contains( 'show' ) )
-                        {
-                            imagesSection.classList.add( 'show' );
-                            toggleImagesButton.textContent = 'Hide Images';
-                        }
-                    };
-                    img.src = reader.result;
-                };
-                reader.readAsDataURL( file );
-            } catch ( error )
-            {
-                showMessage( 'An error occurred during encoding.' );
-            } finally
-            {
-                hideSpinner();
-            }
-        } );
-        function renderDifferenceImage ( originalImageData, encodedImageData )
-        {
-            const width = originalImageData.width;
-            const height = originalImageData.height;
-
-            const diffImageData = differenceCtx.createImageData( width, height );
-            const diffData = diffImageData.data;
-
-            const originalData = originalImageData.data;
-            const encodedData = encodedImageData.data;
-
-            for ( let i = 0; i < originalData.length; i += 4 )
-            {
-                // Compute the absolute difference for each color channel
-                const rDiff = Math.abs( originalData[ i ] - encodedData[ i ] );
-                const gDiff = Math.abs( originalData[ i + 1 ] - encodedData[ i + 1 ] );
-                const bDiff = Math.abs( originalData[ i + 2 ] - encodedData[ i + 2 ] );
-
-                // Amplify the difference for visibility
-                diffData[ i ] = Math.min( rDiff * amplificationFactor, 255 );
-                diffData[ i + 1 ] = Math.min( gDiff * amplificationFactor, 255 );
-                diffData[ i + 2 ] = Math.min( bDiff * amplificationFactor, 255 );
-                diffData[ i + 3 ] = 255; // Set alpha channel to fully opaque
-            }
-
-            differenceCtx.putImageData( diffImageData, 0, 0 );
-        }
-
-
-
-        // Function to encode the message into LSB
-        async function encodeMessage ( data, message, password )
-        {
-            let messageBytes = encodeText( message + '\0' ); // Append null terminator
-            let header = {
-                type: 'text',
-                encrypted: false,
-                dataLength: messageBytes.length
-            };
-            if ( password )
-            {
-                const encryptedData = await encryptData( messageBytes, password );
-                messageBytes = encryptedData;
-                header.encrypted = true;
-                header.dataLength = messageBytes.length;
-            }
-            const headerString = JSON.stringify( header );
-            const headerBytes = encodeText( headerString );
-            const headerLength = headerBytes.length;
-
-            const combinedData = new Uint8Array( [
-                headerLength,
-                ...headerBytes,
-                ...messageBytes
-            ] );
-
-            const totalRequiredBits = combinedData.length * 8;
-            if ( totalRequiredBits > data.length / 4 )
-            {
-                showMessage( 'Message size exceeds maximum capacity of the image.' );
-                return;
-            }
-
-            let dataIndex = 0;
-            for ( let i = 0; i < combinedData.length; i++ )
-            {
-                let byte = combinedData[ i ];
-                for ( let bitIndex = 7; bitIndex >= 0; bitIndex-- )
-                {
-                    let bit = ( byte >> bitIndex ) & 1;
-                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bit; // Set LSB of red channel
-                    dataIndex += 4;
-                }
-            }
-        }
-
-        // Function to encode a file into LSB
-        async function encodeFile ( data, fileData, password )
-        {
-            const fileInput = document.getElementById( 'uploadFile' );
-            const fileName = fileInput.files[ 0 ].name;
-            const mimeType = fileInput.files[ 0 ].type;
-            const fileNameBytes = encodeText( fileName );
-            const mimeTypeBytes = encodeText( mimeType );
-            const fileContentBytes = new Uint8Array( fileData );
-
-            let fileDataArray = new Uint8Array( [
-                fileNameBytes.length,
-                ...fileNameBytes,
-                mimeTypeBytes.length,
-                ...mimeTypeBytes,
-                ...fileContentBytes
-            ] );
-
-            let header = {
-                type: 'file',
-                encrypted: false,
-                dataLength: fileDataArray.length
-            };
-
-            if ( password )
-            {
-                const encryptedData = await encryptData( fileDataArray, password );
-                fileDataArray = encryptedData;
-                header.encrypted = true;
-                header.dataLength = fileDataArray.length;
-            }
-
-            const headerString = JSON.stringify( header );
-            const headerBytes = encodeText( headerString );
-            const headerLength = headerBytes.length;
-
-            const combinedData = new Uint8Array( [
-                headerLength,
-                ...headerBytes,
-                ...fileDataArray
-            ] );
-
-            const totalRequiredBits = combinedData.length * 8;
-            if ( totalRequiredBits > data.length / 4 )
-            {
-                showMessage( 'File size exceeds maximum capacity of the image.' );
-                return;
-            }
-
-            let dataIndex = 0;
-            for ( let i = 0; i < combinedData.length; i++ )
-            {
-                let byte = combinedData[ i ];
-                for ( let bitIndex = 7; bitIndex >= 0; bitIndex-- )
-                {
-                    let bit = ( byte >> bitIndex ) & 1;
-                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bit; // Set LSB of red channel
-                    dataIndex += 4;
-                }
-            }
-        }
-        function generateRandomBytes(size) {
-            const MAX_BYTES = 65536; // Maximum bytes per call
-            const bytes = new Uint8Array(size);
-            let generated = 0;
-
-            while (generated < size) {
-                const chunkSize = Math.min(MAX_BYTES, size - generated);
-                const chunk = new Uint8Array(chunkSize);
-                crypto.getRandomValues(chunk);
-                bytes.set(chunk, generated);
-                generated += chunkSize;
-            }
-
-            return bytes;
-        }
-
-        // Function to encode the data (message and/or file) into LSB
         async function encodeData ( data, message, fileData, password )
         {
-            let textBytes = null;
-            let fileBytes = null;
-
+            let totalDataBytes = new Uint8Array();
             let hasText = message.length > 0;
             let hasFile = fileData !== null;
 
@@ -1205,44 +812,64 @@
                 const messageEncoded = encodeText( message );
                 const textLengthBuffer = new ArrayBuffer( 4 );
                 new DataView( textLengthBuffer ).setUint32( 0, messageEncoded.length );
-                textBytes = new Uint8Array( [ ...new Uint8Array( textLengthBuffer ), ...messageEncoded ] );
+                const textBytes = new Uint8Array( [
+                    ...new Uint8Array( textLengthBuffer ),
+                    ...messageEncoded
+                ] );
+                totalDataBytes = hasFile
+                    ? new Uint8Array( [ ...textBytes ] )
+                    : textBytes;
             }
 
             // Prepare file data
             if ( hasFile )
             {
-                const fileInput = document.getElementById( 'uploadFile' );
-                const fileName = fileInput.files[ 0 ].name;
-                const mimeType = fileInput.files[ 0 ].type;
+                const fileInput = uploadFileInput;
+                const file = fileInput.files[ 0 ];
+                const fileName = file.name;
+                const mimeType = file.type;
                 const fileNameBytes = encodeText( fileName );
                 const mimeTypeBytes = encodeText( mimeType );
                 const fileContentBytes = new Uint8Array( fileData );
 
-                fileBytes = new Uint8Array( [
+                const fileBytes = new Uint8Array( [
                     fileNameBytes.length,
                     ...fileNameBytes,
                     mimeTypeBytes.length,
                     ...mimeTypeBytes,
                     ...fileContentBytes
                 ] );
+
+                if ( hasText )
+                {
+                    // Append fileBytes to totalDataBytes
+                    const combinedLength = totalDataBytes.length + fileBytes.length;
+                    const combinedBytes = new Uint8Array( combinedLength );
+                    combinedBytes.set( totalDataBytes, 0 );
+                    combinedBytes.set( fileBytes, totalDataBytes.length );
+                    totalDataBytes = combinedBytes;
+                } else
+                {
+                    totalDataBytes = fileBytes;
+                }
             }
 
-            // Combine text and file data
-            let totalDataBytes;
-            if ( hasText && hasFile )
+            // If password is provided, encrypt the combined data
+            if ( password )
             {
-                totalDataBytes = new Uint8Array( [ ...textBytes, ...fileBytes ] );
-            } else if ( hasText )
-            {
-                totalDataBytes = textBytes;
-            } else
-            {
-                totalDataBytes = fileBytes;
+                try
+                {
+                    totalDataBytes = await encryptData( totalDataBytes, password );
+                } catch ( error )
+                {
+                    showMessage( 'Encryption failed. Please try again.', true );
+                    return;
+                }
             }
+
             // Get selected channels and bit depth
             const selectedChannels = getSelectedChannels();
             const bitDepth = getBitDepth();
-
 
             // Prepare header with new settings
             let header = {
@@ -1261,33 +888,47 @@
             // Ensure header length fits in one byte
             if ( headerLength > 255 )
             {
-                showMessage( 'Header is too large.' );
+                showMessage( 'Header is too large.', true );
                 return;
             }
 
-            // Encode header length and header bytes into LSB of red channel
+            // Encode header length and header bytes into LSB of selected channels
             let dataIndex = 0;
-            for ( let bitIndex = 7; bitIndex >= 0; bitIndex-- )
+            const totalHeaderBits = ( 1 + headerLength ) * 8; // 1 byte for length + header bytes
+
+            for ( let bit = 7; bit >= 0; bit-- )
             {
-                let bit = ( headerLength >> bitIndex ) & 1;
-                data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bit;
-                dataIndex += 4;
+                let bitValue = ( headerLength >> bit ) & 1;
+                data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
+                dataIndex += 4; // Move to the next channel based on encoding strategy
             }
+
             for ( let i = 0; i < headerLength; i++ )
             {
                 let byte = headerBytes[ i ];
-                for ( let bitIndex = 7; bitIndex >= 0; bitIndex-- )
+                for ( let bit = 7; bit >= 0; bit-- )
                 {
-                    let bit = ( byte >> bitIndex ) & 1;
-                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bit;
+                    let bitValue = ( byte >> bit ) & 1;
+                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
                     dataIndex += 4;
                 }
             }
 
-            // Align dataIndex to next multiple of 4
+            // Align dataIndex to next multiple of bitsPerPixel
+            const bitsPerPixel = selectedChannels.length * bitDepth;
             dataIndex = Math.ceil( dataIndex / 4 ) * 4;
 
-            // Generate positions based on selected channels and bit depth
+            // Calculate total required bits for data
+            const totalRequiredBits = totalDataBytes.length * 8;
+            const totalAvailableBits = ( data.length / 4 - dataIndex / 4 ) * bitsPerPixel;
+
+            if ( totalRequiredBits > totalAvailableBits )
+            {
+                showMessage( 'Data size exceeds maximum capacity of the image.', true );
+                return;
+            }
+
+            // Generate channel-bit positions based on selected channels and bit depth
             let channelBitPositions = [];
             for ( let channel of selectedChannels )
             {
@@ -1297,61 +938,14 @@
                 }
             }
 
-            const bitsPerPixel = channelBitPositions.length;
-            const numPixels = data.length / 4;
-            const totalAvailableBits = bitsPerPixel * ( numPixels - dataIndex / 4 );
-            const totalRequiredBits = totalDataBytes.length * 8;
-            //const totalAvailableBytes = Math.floor( totalAvailableBits / 8 );
-
-
-            if ( totalRequiredBits > totalAvailableBits )
-            {
-                showMessage( 'Data size exceeds maximum capacity of the image.' );
-                return;
-            }
-
-
-            // If the fill random data option is enabled
-            if ( isFillRandomDataEnabled() )
-            {
-                // Calculate remaining space
-                const remainingBits = totalAvailableBits - totalRequiredBits;
-                const remainingBytes = Math.floor( remainingBits / 8 );
-
-                if ( remainingBytes > 0 )
-                {
-                    // Generate random data using the helper function
-                    const randomBytes = generateRandomBytes(remainingBytes);
-                    // Append random data to totalDataBytes
-                    const combinedBytes = new Uint8Array(totalDataBytes.length + randomBytes.length);
-                    combinedBytes.set( totalDataBytes );
-                    combinedBytes.set( randomBytes, totalDataBytes.length );
-                    totalDataBytes = combinedBytes;
-                    // Update dataLength in header
-                    header.dataLength = totalDataBytes.length;
-
-                    headerString = JSON.stringify( header );
-                    headerBytes = encodeText( headerString );
-                    headerLength = headerBytes.length;
-
-                    // Ensure header length fits in one byte
-                    if ( headerLength > 255 )
-                    {
-                        showMessage( 'Header is too large.' );
-                        return;
-                    }
-
-                }
-            }
-
             // Encode data using selected settings
             let bitPosIndex = 0;
             for ( let i = 0; i < totalDataBytes.length; i++ )
             {
                 let byte = totalDataBytes[ i ];
-                for ( let bitIndex = 7; bitIndex >= 0; bitIndex-- )
+                for ( let bit = 7; bit >= 0; bit-- )
                 {
-                    let bit = ( byte >> bitIndex ) & 1;
+                    let bitValue = ( byte >> bit ) & 1;
 
                     let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
                     let bitWithinPixel = bitPosIndex % bitsPerPixel;
@@ -1362,23 +956,44 @@
                     let baseIndex = dataIdx + channelIndex;
 
                     let bitMask = 1 << channelBit;
-                    data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bit << channelBit );
+                    data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
 
                     bitPosIndex++;
                 }
             }
-        }
 
+            // If the fill random data option is enabled, fill the remaining space with random data
+            if ( isFillRandomDataEnabled() )
+            {
+                const remainingBits = totalAvailableBits - totalRequiredBits;
+                const remainingBytes = Math.floor( remainingBits / 8 );
 
-        // Encryption and decryption functions
-        function encodeText ( text )
-        {
-            return new TextEncoder().encode( text );
-        }
+                if ( remainingBytes > 0 )
+                {
+                    const randomBytes = generateRandomBytes( remainingBytes );
+                    for ( let i = 0; i < randomBytes.length; i++ )
+                    {
+                        let byte = randomBytes[ i ];
+                        for ( let bit = 7; bit >= 0; bit-- )
+                        {
+                            let bitValue = ( byte >> bit ) & 1;
 
-        function decodeText ( data )
-        {
-            return new TextDecoder().decode( data );
+                            let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
+                            let bitWithinPixel = bitPosIndex % bitsPerPixel;
+                            let { channel, bit: channelBit } = channelBitPositions[ bitWithinPixel ];
+
+                            let dataIdx = dataIndex + pixelOffset * 4;
+                            let channelIndex = { 'R': 0, 'G': 1, 'B': 2 }[ channel ];
+                            let baseIndex = dataIdx + channelIndex;
+
+                            let bitMask = 1 << channelBit;
+                            data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
+
+                            bitPosIndex++;
+                        }
+                    }
+                }
+            }
         }
 
         async function generateKey ( password, salt )
@@ -1446,41 +1061,344 @@
             }
         }
 
-        // Calculate message size dynamically
+        function updateMaxDataSize ( img )
+        {
+            const selectedChannels = getSelectedChannels();
+            const bitDepth = getBitDepth();
+            const numChannels = selectedChannels.length;
+
+            const availableBits = img.width * img.height * numChannels * bitDepth;
+            maxDataSize = Math.floor( availableBits / 8 );
+
+            maxBytesSpan.textContent = maxDataSize;
+            updateTotalDataSize();
+        }
+
+        function updateCapacityBar ( totalDataSize )
+        {
+
+            const capacityUsed = ( totalDataSize / maxDataSize ) * 100;
+
+            capacityFill.style.width = `${ Math.min( capacityUsed, 100 ) }%`;
+
+            if ( capacityUsed > 100 )
+            {
+                capacityFill.style.backgroundColor = '#f44336'; // Red when over capacity
+            } else
+            {
+                capacityFill.style.backgroundColor = '#4caf50'; // Green when within capacity
+            }
+        }
+
+        function updateTotalDataSize ()
+        {
+            const messageSize = parseInt( messageSizeSpan.textContent ) || 0;
+            const fileSize = parseInt( fileSizeSpan.textContent ) || 0;
+            let totalDataSize = messageSize + fileSize;
+            totalDataSizeSpan.textContent = totalDataSize;
+
+            if ( maxDataSize > 0 && totalDataSize > maxDataSize )
+            {
+                const overBy = totalDataSize - maxDataSize;
+                showMessage( `Total data size exceeds the maximum capacity of the image by ${ overBy } bytes.`, true );
+                document.getElementById( 'encodeButton' ).disabled = true;
+                totalDataSizeLine.classList.add( 'over-limit' );
+            } else
+            {
+                clearMessage();
+                updateEncodeButtonState();
+                totalDataSizeLine.classList.remove( 'over-limit' );
+            }
+
+            updateCapacityBar( totalDataSize );
+        }
+
+        function updateEncodeSettings ()
+        {
+            const img = uploadImageWriteInput.files[ 0 ];
+            if ( img )
+            {
+                // Recalculate max data size
+                const reader = new FileReader();
+                reader.onload = () =>
+                {
+                    const image = new Image();
+                    image.onload = () =>
+                    {
+                        updateMaxDataSize( image );
+                    };
+                    image.src = reader.result;
+                };
+                reader.readAsDataURL( img );
+            }
+            updateEncodeButtonState();
+        }
+
+        function renderDifferenceImage ( originalImageData, encodedImageData )
+        {
+            const width = originalImageData.width;
+            const height = originalImageData.height;
+
+            const diffImageData = differenceCtx.createImageData( width, height );
+            const diffData = diffImageData.data;
+
+            const originalData = originalImageData.data;
+            const encodedData = encodedImageData.data;
+
+            for ( let i = 0; i < originalData.length; i += 4 )
+            {
+                // Compute the absolute difference for each color channel
+                const rDiff = Math.abs( originalData[ i ] - encodedData[ i ] );
+                const gDiff = Math.abs( originalData[ i + 1 ] - encodedData[ i + 1 ] );
+                const bDiff = Math.abs( originalData[ i + 2 ] - encodedData[ i + 2 ] );
+
+                // Amplify the difference for visibility
+                diffData[ i ] = Math.min( rDiff * amplificationFactor, 255 );
+                diffData[ i + 1 ] = Math.min( gDiff * amplificationFactor, 255 );
+                diffData[ i + 2 ] = Math.min( bDiff * amplificationFactor, 255 );
+                diffData[ i + 3 ] = 255; // Set alpha channel to fully opaque
+            }
+
+            differenceCtx.putImageData( diffImageData, 0, 0 );
+        }
+
+        function toggleImagesSection ()
+        {
+            if ( imagesSection.classList.contains( 'show' ) )
+            {
+                imagesSection.classList.remove( 'show' );
+                toggleImagesButton.textContent = 'Show Images';
+            } else
+            {
+                imagesSection.classList.add( 'show' );
+                toggleImagesButton.textContent = 'Hide Images';
+            }
+        }
+
+        function showSpinner ()
+        {
+            spinner.style.display = 'block';
+        }
+
+        function hideSpinner ()
+        {
+            spinner.style.display = 'none';
+        }
+
+        function showMessage ( text, isError = true )
+        {
+            messageBox.className = isError ? 'error' : 'success';
+            messageBox.textContent = text;
+            messageBox.style.display = 'block';
+
+            // Start fade-out after 4 seconds (display duration)
+            setTimeout( () =>
+            {
+                messageBox.classList.add( 'fade-out' );
+            }, 4000 );
+
+            // Hide after 5 seconds (allowing 1 second for fade-out)
+            setTimeout( () =>
+            {
+                messageBox.style.display = 'none';
+                messageBox.classList.remove( 'fade-out' );
+            }, 5000 );
+        }
+
+        function clearMessage ()
+        {
+            messageBox.textContent = '';
+            messageBox.style.display = 'none';
+            messageBox.classList.remove( 'fade-out' );
+        }
+
+        function isFillRandomDataEnabled ()
+        {
+            return fillRandomDataCheckbox.checked;
+        }
+
+        function getSelectedChannels ()
+        {
+            const channels = [];
+            if ( channelRed.checked ) channels.push( 'R' );
+            if ( channelGreen.checked ) channels.push( 'G' );
+            if ( channelBlue.checked ) channels.push( 'B' );
+            return channels;
+        }
+
+        function getBitDepth ()
+        {
+            const bitDepth = parseInt( bitDepthInput.value );
+            return Math.min( Math.max( bitDepth, 1 ), 16 );
+        }
+
+        function updateEncodeButtonState ()
+        {
+            const imageUploaded = uploadImageWriteInput.files.length > 0;
+            const messageProvided = messageInput.value.length > 0 || uploadedFileData;
+            const messageSize = parseInt( messageSizeSpan.textContent ) || 0;
+            const fileSize = parseInt( fileSizeSpan.textContent ) || 0;
+            const totalDataSize = messageSize + fileSize;
+
+            const canEncode = imageUploaded && messageProvided && ( totalDataSize <= maxDataSize );
+            document.getElementById( 'encodeButton' ).disabled = !canEncode;
+        }
+
+        function updateDecodeButtonState ()
+        {
+            const imageUploaded = uploadImageReadInput.files.length > 0;
+            decodeButton.disabled = !imageUploaded;
+        }
+
+        encodeButton.addEventListener( 'click', async () =>
+        {
+            clearMessage();
+            showSpinner();
+            try
+            {
+                const fileInput = uploadImageWriteInput;
+                const message = messageInput.value;
+                const password = document.getElementById( 'passwordInput' ).value;
+
+                if ( !fileInput.files.length )
+                {
+                    showMessage( 'Please upload an image.' );
+                    return;
+                }
+
+                if ( !message && !uploadedFileData )
+                {
+                    showMessage( 'Please enter a message or upload a file to encode.' );
+                    return;
+                }
+
+                const file = fileInput.files[ 0 ];
+                const reader = new FileReader();
+                reader.onload = () =>
+                {
+                    const img = new Image();
+                    img.onload = async () =>
+                    {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage( img, 0, 0 );
+                        const imageData = ctx.getImageData( 0, 0, img.width, img.height );
+                        // Copy the original image data
+                        originalImageData = new ImageData(
+                            new Uint8ClampedArray( imageData.data ),
+                            imageData.width,
+                            imageData.height
+                        );
+
+                        await encodeData( imageData.data, message, uploadedFileData, password );
+                        ctx.putImageData( imageData, 0, 0 );
+                        encodedImageData = ctx.getImageData( 0, 0, img.width, img.height );
+
+                        // Render the encoded image on encodedCanvas
+                        encodedCanvas.width = img.width;
+                        encodedCanvas.height = img.height;
+                        encodedCtx.putImageData( encodedImageData, 0, 0 );
+
+                        // Compute and render the difference image
+                        renderDifferenceImage( originalImageData, encodedImageData );
+
+                        const encodedImage = canvas.toDataURL( 'image/png' );
+                        //const downloadLink = document.getElementById( 'downloadLink' );
+                        downloadLink.style.display = 'inline';
+                        downloadLink.href = encodedImage;
+                        downloadLink.download = 'encoded-image.png';
+                        downloadLink.textContent = 'Download Encoded Image';
+                        showMessage( 'Encoding completed successfully!', false );
+                        // Automatically show the images section after encoding
+                        if ( !imagesSection.classList.contains( 'show' ) )
+                        {
+                            imagesSection.classList.add( 'show' );
+                            toggleImagesButton.textContent = 'Hide Images';
+                        }
+                    };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL( file );
+            } catch ( error )
+            {
+                showMessage( 'An error occurred during encoding.' );
+            } finally
+            {
+                hideSpinner();
+            }
+        } );
+
+        decodeButton.addEventListener( 'click', async () =>
+        {
+            clearMessage();
+            showSpinner();
+            try
+            {
+                const password = document.getElementById( 'passwordInputDecode' ).value;
+
+                if ( !uploadImageReadInput.files.length )
+                {
+                    showMessage( 'Please upload an image.' );
+                    return;
+                }
+                const file = uploadImageReadInput.files[ 0 ];
+                const reader = new FileReader();
+                reader.onload = () =>
+                {
+                    const img = new Image();
+                    img.onload = async () =>
+                    {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage( img, 0, 0 );
+                        const imageData = ctx.getImageData( 0, 0, img.width, img.height );
+                        const result = await decodeData( imageData.data, password );
+
+                        if ( !result ) return;
+
+                        if ( result.text )
+                        {
+                            decodedMessage.style.display = 'block';
+                            decodedMessage.querySelector( 'span' ).textContent = result.text;
+                        } else
+                        {
+                            decodedMessage.style.display = 'none';
+                        }
+
+                        if ( result.file )
+                        {
+                            const blob = new Blob( [ result.file.content ], { type: result.file.mimeType } );
+                            const url = URL.createObjectURL( blob );
+                            downloadDecodedFile.style.display = 'inline';
+                            downloadDecodedFile.href = url;
+                            downloadDecodedFile.download = result.file.fileName;
+                            downloadDecodedFile.textContent = `Download Decoded File (${ result.file.fileName })`;
+                        } else
+                        {
+                            downloadDecodedFile.style.display = 'none';
+                        }
+                    };
+                    img.src = reader.result;
+                };
+                reader.readAsDataURL( file );
+            } catch ( error )
+            {
+                showMessage( 'An error occurred during decoding.' );
+            } finally
+            {
+                hideSpinner();
+            }
+        } );
+
         document.getElementById( 'messageInput' ).addEventListener( 'input', () =>
         {
-            const message = document.getElementById( 'messageInput' ).value;
+            const message = messageInput.value;
             const size = new Blob( [ message ] ).size; // Size in bytes
-            document.getElementById( 'messageSize' ).textContent = size;
+            messageSizeSpan.textContent = size;
             updateTotalDataSize();
             updateEncodeButtonState();
         } );
 
-        // Calculate maximum message size when an image is uploaded
-        document.getElementById( 'uploadImageWrite' ).addEventListener( 'change', () =>
-        {
-            const fileInput = document.getElementById( 'uploadImageWrite' );
-            if ( !fileInput.files.length ) return;
-
-            const file = fileInput.files[ 0 ];
-            const reader = new FileReader();
-            reader.onload = () =>
-            {
-                const img = new Image();
-                img.onload = () =>
-                {
-                    maxDataSize = Math.floor( ( img.width * img.height * 3 ) / 8 );
-                    document.getElementById( 'maxBytes' ).querySelector( 'span' ).textContent = maxDataSize;
-                    updateTotalDataSize(); // Update total data size here
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL( file );
-            updateEncodeButtonState();
-        } );
-
-
-        // Handle file upload for encoding
         document.getElementById( 'uploadFile' ).addEventListener( 'change', ( event ) =>
         {
             const file = event.target.files[ 0 ];
@@ -1491,7 +1409,7 @@
                 {
                     uploadedFileData = reader.result;
                     const size = file.size;
-                    document.getElementById( 'fileSize' ).textContent = size;
+                    fileSizeSpan.textContent = size;
                     updateTotalDataSize();
                     updateEncodeButtonState();
                 };
@@ -1499,7 +1417,7 @@
             } else
             {
                 uploadedFileData = null;
-                document.getElementById( 'fileSize' ).textContent = 0;
+                fileSizeSpan.textContent = 0;
                 updateTotalDataSize();
                 updateEncodeButtonState();
             }
@@ -1507,10 +1425,9 @@
 
         document.getElementById( 'uploadImageWrite' ).addEventListener( 'change', () =>
         {
-            const fileInput = document.getElementById( 'uploadImageWrite' );
-            if ( !fileInput.files.length ) return;
+            if ( !uploadImageWriteInput.files.length ) return;
 
-            const file = fileInput.files[ 0 ];
+            const file = uploadImageWriteInput.files[ 0 ];
             const reader = new FileReader();
             reader.onload = () =>
             {
@@ -1535,7 +1452,7 @@
                     differenceCanvas.width = img.width;
                     differenceCanvas.height = img.height;
 
-                    document.getElementById( 'maxBytes' ).querySelector( 'span' ).textContent = maxDataSize;
+                    maxBytesSpan.textContent = maxDataSize;
                     updateTotalDataSize();
                 };
                 img.src = reader.result;
@@ -1544,125 +1461,25 @@
             updateEncodeButtonState();
         } );
 
-        function updateMaxDataSize ( img )
+        channelRed.addEventListener( 'change', () => updateEncodeSettings() );
+        channelGreen.addEventListener( 'change', () => updateEncodeSettings() );
+        channelBlue.addEventListener( 'change', () => updateEncodeSettings() );
+        bitDepthInput.addEventListener( 'input', () => updateEncodeSettings() );
+        uploadImageReadInput.addEventListener( 'change', updateDecodeButtonState );
+        amplificationSlider.addEventListener( 'input', () =>
         {
-            const selectedChannels = getSelectedChannels();
-            const bitDepth = getBitDepth();
-            const numChannels = selectedChannels.length;
+            amplificationFactor = parseInt( amplificationSlider.value );
+            amplificationValue.textContent = amplificationFactor;
 
-            const availableBits = img.width * img.height * numChannels * bitDepth;
-            maxDataSize = Math.floor( availableBits / 8 );
-
-            document.getElementById( 'maxBytes' ).querySelector( 'span' ).textContent = maxDataSize;
-            updateTotalDataSize();
-        }
-
-        document.getElementById( 'messageInput' ).addEventListener( 'input', () =>
-        {
-            const message = document.getElementById( 'messageInput' ).value;
-            const size = new Blob( [ message ] ).size; // Size in bytes
-            document.getElementById( 'messageSize' ).textContent = size;
-            updateTotalDataSize();
-            updateEncodeButtonState();
-        } );
-        document.getElementById( 'uploadFile' ).addEventListener( 'change', ( event ) =>
-        {
-            const file = event.target.files[ 0 ];
-            if ( file )
+            // Re-render the difference image
+            if ( originalImageData && encodedImageData )
             {
-                const reader = new FileReader();
-                reader.onload = () =>
-                {
-                    uploadedFileData = reader.result;
-                    const size = file.size;
-                    document.getElementById( 'fileSize' ).textContent = size;
-                    updateTotalDataSize();
-                    updateEncodeButtonState();
-                };
-                reader.readAsArrayBuffer( file );
-            } else
-            {
-                uploadedFileData = null;
-                document.getElementById( 'fileSize' ).textContent = 0;
-                updateTotalDataSize();
-                updateEncodeButtonState();
+                renderDifferenceImage( originalImageData, encodedImageData );
             }
         } );
 
-        function updateCapacityBar ( totalDataSize )
-        {
-            //const totalDataSize = messageSize + fileSize;
-            const capacityUsed = ( totalDataSize / maxDataSize ) * 100;
-            const capacityFill = document.getElementById( 'capacityFill' );
-            capacityFill.style.width = `${ Math.min( capacityUsed, 100 ) }%`;
+        toggleImagesButton.addEventListener( 'click', toggleImagesSection );
 
-            if ( capacityUsed > 100 )
-            {
-                capacityFill.style.backgroundColor = '#f44336'; // Red when over capacity
-            } else
-            {
-                capacityFill.style.backgroundColor = '#4caf50'; // Green when within capacity
-            }
-        }
-
-        function updateTotalDataSize ()
-        {
-            const messageSize = parseInt( document.getElementById( 'messageSize' ).textContent ) || 0;
-            const fileSize = parseInt( document.getElementById( 'fileSize' ).textContent ) || 0;
-            let totalDataSize = messageSize + fileSize;
-
-            const totalDataSizeElement = document.getElementById( 'totalDataSize' );
-            const totalDataSizeLine = document.getElementById( 'totalDataSizeLine' );
-            totalDataSizeElement.textContent = totalDataSize;
-
-            if ( maxDataSize > 0 && totalDataSize > maxDataSize )
-            {
-                const overBy = totalDataSize - maxDataSize;
-                showMessage( `Total data size exceeds the maximum capacity of the image by ${ overBy } bytes.`, true );
-                document.getElementById( 'encodeButton' ).disabled = true;
-                totalDataSizeLine.classList.add( 'over-limit' );
-            } else
-            {
-                clearMessage();
-                updateEncodeButtonState();
-                totalDataSizeLine.classList.remove( 'over-limit' );
-            }
-
-            updateCapacityBar( totalDataSize );
-        }
-
-
-
-        // For image write settings
-        document.getElementById( 'channelRed' ).addEventListener( 'change', () => updateEncodeSettings() );
-        document.getElementById( 'channelGreen' ).addEventListener( 'change', () => updateEncodeSettings() );
-        document.getElementById( 'channelBlue' ).addEventListener( 'change', () => updateEncodeSettings() );
-        document.getElementById( 'bitDepth' ).addEventListener( 'input', () => updateEncodeSettings() );
-
-        function updateEncodeSettings ()
-        {
-            const img = document.getElementById( 'uploadImageWrite' ).files[ 0 ];
-            if ( img )
-            {
-                // Recalculate max data size
-                const reader = new FileReader();
-                reader.onload = () =>
-                {
-                    const image = new Image();
-                    image.onload = () =>
-                    {
-                        updateMaxDataSize( image );
-                    };
-                    image.src = reader.result;
-                };
-                reader.readAsDataURL( img );
-            }
-            updateEncodeButtonState();
-        }
-
-        document.getElementById( 'uploadImageRead' ).addEventListener( 'change', updateDecodeButtonState );
-
-        // Initialize button states
         updateEncodeButtonState();
         updateDecodeButtonState();
     </script>
