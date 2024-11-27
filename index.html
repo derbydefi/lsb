@@ -1168,6 +1168,21 @@
                 }
             }
         }
+        function generateRandomBytes(size) {
+            const MAX_BYTES = 65536; // Maximum bytes per call
+            const bytes = new Uint8Array(size);
+            let generated = 0;
+
+            while (generated < size) {
+                const chunkSize = Math.min(MAX_BYTES, size - generated);
+                const chunk = new Uint8Array(chunkSize);
+                crypto.getRandomValues(chunk);
+                bytes.set(chunk, generated);
+                generated += chunkSize;
+            }
+
+            return bytes;
+        }
 
         // Function to encode the data (message and/or file) into LSB
         async function encodeData ( data, message, fileData, password )
@@ -1305,10 +1320,10 @@
 
                 if ( remainingBytes > 0 )
                 {
-                    // Generate random data
-                    const randomBytes = crypto.getRandomValues( new Uint8Array( remainingBytes ) );
+                    // Generate random data using the helper function
+                    const randomBytes = generateRandomBytes(remainingBytes);
                     // Append random data to totalDataBytes
-                    const combinedBytes = new Uint8Array( totalDataBytes.length + randomBytes.length );
+                    const combinedBytes = new Uint8Array(totalDataBytes.length + randomBytes.length);
                     combinedBytes.set( totalDataBytes );
                     combinedBytes.set( randomBytes, totalDataBytes.length );
                     totalDataBytes = combinedBytes;
