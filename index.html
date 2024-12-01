@@ -1095,6 +1095,10 @@
             const messageSize = parseInt( messageSizeSpan.textContent ) || 0;
             const fileSize = parseInt( fileSizeSpan.textContent ) || 0;
             let totalDataSize = messageSize + fileSize;
+            const password = document.getElementById('passwordInput').value;
+            if (password) {
+                totalDataSize += 44; // 16 bytes salt + 12 bytes iv + 16 bytes tag
+            }
             totalDataSizeSpan.textContent = totalDataSize;
 
             if ( maxDataSize > 0 && totalDataSize > maxDataSize )
