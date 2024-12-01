@@ -634,7 +634,7 @@
         const totalDataSizeLine = document.getElementById( 'totalDataSizeLine' );
 
         toggleImagesButton.textContent = 'Show Images';
-
+        const DEFAULT_PASSWORD = "password"
 
         function generateRandomBytes ( size )
         {
@@ -662,6 +662,197 @@
         function decodeText ( data )
         {
             return new TextDecoder().decode( data );
+        }
+
+        async function encodeData ( data, message, fileData, password )
+        {
+            let totalDataBytes = new Uint8Array();
+            let hasText = message.length > 0;
+            let hasFile = fileData !== null;
+
+            if ( !hasText && !hasFile )
+            {
+                showMessage( 'No data to encode.' );
+                return;
+            }
+
+            // Prepare text data
+            if ( hasText )
+            {
+                const messageEncoded = encodeText( message );
+                const textLengthBuffer = new ArrayBuffer( 4 );
+                new DataView( textLengthBuffer ).setUint32( 0, messageEncoded.length );
+                const textBytes = new Uint8Array( [
+                    ...new Uint8Array( textLengthBuffer ),
+                    ...messageEncoded
+                ] );
+                totalDataBytes = hasFile
+                    ? new Uint8Array( [ ...textBytes ] )
+                    : textBytes;
+            }
+
+            // Prepare file data
+            if ( hasFile )
+            {
+                const fileInput = uploadFileInput;
+                const file = fileInput.files[ 0 ];
+                const fileName = file.name;
+                const mimeType = file.type;
+                const fileNameBytes = encodeText( fileName );
+                const mimeTypeBytes = encodeText( mimeType );
+                const fileContentBytes = new Uint8Array( fileData );
+
+                const fileBytes = new Uint8Array( [
+                    fileNameBytes.length,
+                    ...fileNameBytes,
+                    mimeTypeBytes.length,
+                    ...mimeTypeBytes,
+                    ...fileContentBytes
+                ] );
+
+                if ( hasText )
+                {
+                    // Append fileBytes to totalDataBytes
+                    const combinedLength = totalDataBytes.length + fileBytes.length;
+                    const combinedBytes = new Uint8Array( combinedLength );
+                    combinedBytes.set( totalDataBytes, 0 );
+                    combinedBytes.set( fileBytes, totalDataBytes.length );
+                    totalDataBytes = combinedBytes;
+                } else
+                {
+                    totalDataBytes = fileBytes;
+                }
+            }
+
+            const pwd = password || DEFAULT_PASSWORD;
+
+            // Always encrypt the combined data
+            try
+            {
+                totalDataBytes = await encryptData( totalDataBytes, pwd );
+            } catch ( error )
+            {
+                showMessage( 'Encryption failed. Please try again.', true );
+                return;
+            }
+
+            // Get selected channels and bit depth
+            const selectedChannels = getSelectedChannels();
+            const bitDepth = getBitDepth();
+
+            // Prepare header with new settings
+            let header = {
+                hasText: hasText,
+                hasFile: hasFile,
+                encrypted: true,
+                dataLength: totalDataBytes.length,
+                channels: selectedChannels,
+                bitDepth: bitDepth
+            };
+
+            let headerString = JSON.stringify( header );
+            let headerBytes = encodeText( headerString );
+            let headerLength = headerBytes.length;
+
+            // Ensure header length fits in one byte
+            if ( headerLength > 255 )
+            {
+                showMessage( 'Header is too large.', true );
+                return;
+            }
+
+            // Encode header length and header bytes into LSB of red channel
+            let dataIndex = 0;
+            for ( let bit = 7; bit >= 0; bit-- )
+            {
+                let bitValue = ( headerLength >> bit ) & 1;
+                data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
+                dataIndex += 4; // Move to next pixel
+            }
+
+            for ( let i = 0; i < headerLength; i++ )
+            {
+                let byte = headerBytes[ i ];
+                for ( let bit = 7; bit >= 0; bit-- )
+                {
+                    let bitValue = ( byte >> bit ) & 1;
+                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
+                    dataIndex += 4; // Move to next pixel
+                }
+            }
+
+            // Now dataIndex points to the next pixel after the header
+            // We can proceed to encode the data
+            const bitsPerPixel = selectedChannels.length * bitDepth;
+            let bitPosIndex = 0;
+
+            // Generate channel-bit positions based on selected channels and bit depth
+            let channelBitPositions = [];
+            for ( let channel of selectedChannels )
+            {
+                for ( let bit = 0; bit < bitDepth; bit++ )
+                {
+                    channelBitPositions.push( { channel, bit } );
+                }
+            }
+
+            // Encode data using selected settings
+            for ( let i = 0; i < totalDataBytes.length; i++ )
+            {
+                let byte = totalDataBytes[ i ];
+                for ( let bit = 7; bit >= 0; bit-- )
+                {
+                    let bitValue = ( byte >> bit ) & 1;
+
+                    let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
+                    let bitWithinPixel = bitPosIndex % bitsPerPixel;
+                    let { channel, bit: channelBit } = channelBitPositions[ bitWithinPixel ];
+
+                    let dataIdx = dataIndex + pixelOffset * 4;
+                    let channelIndex = { 'R': 0, 'G': 1, 'B': 2 }[ channel ];
+                    let baseIndex = dataIdx + channelIndex;
+
+                    let bitMask = 1 << channelBit;
+                    data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
+
+                    bitPosIndex++;
+                }
+            }
+
+            // If the fill random data option is enabled, fill the remaining space with random data
+            if ( isFillRandomDataEnabled() )
+            {
+                const totalAvailableBits = ( ( data.length / 4 ) - ( dataIndex / 4 ) ) * bitsPerPixel;
+                const totalRequiredBits = totalDataBytes.length * 8;
+                const remainingBits = totalAvailableBits - totalRequiredBits;
+                const remainingBytes = Math.floor( remainingBits / 8 );
+
+                if ( remainingBytes > 0 )
+                {
+                    const randomBytes = generateRandomBytes( remainingBytes );
+                    for ( let i = 0; i < randomBytes.length; i++ )
+                    {
+                        let byte = randomBytes[ i ];
+                        for ( let bit = 7; bit >= 0; bit-- )
+                        {
+                            let bitValue = ( byte >> bit ) & 1;
+
+                            let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
+                            let bitWithinPixel = bitPosIndex % bitsPerPixel;
+                            let { channel, bit: channelBit } = channelBitPositions[ bitWithinPixel ];
+
+                            let dataIdx = dataIndex + pixelOffset * 4;
+                            let channelIndex = { 'R': 0, 'G': 1, 'B': 2 }[ channel ];
+                            let baseIndex = dataIdx + channelIndex;
+
+                            let bitMask = 1 << channelBit;
+                            data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
+
+                            bitPosIndex++;
+                        }
+                    }
+                }
+            }
         }
 
         async function decodeData ( data, password )
@@ -734,26 +925,14 @@
                 dataBytes[ i ] = byte;
             }
             let binaryData;
-            if ( header.encrypted )
+            const pwd = password || DEFAULT_PASSWORD;
+            try
             {
-                if ( !password )
-                {
-                    showMessage( 'Failed to decrypt data. Please check the password or data integrity.' );
-
-                    return null;
-                }
-                try
-                {
-                    binaryData = await decryptData( dataBytes, password );
-                } catch ( e )
-                {
-                    showMessage( 'Failed to decrypt data. Please check the password or data integrity.' );
-
-                    return null;
-                }
-            } else
+                binaryData = await decryptData( dataBytes, pwd );
+            } catch ( e )
             {
-                binaryData = dataBytes;
+                showMessage( 'Failed to decrypt data. Please check the password or data integrity.' );
+                return null;
             }
 
             let result = {};
@@ -792,208 +971,6 @@
             }
 
             return result;
-        }
-
-        async function encodeData ( data, message, fileData, password )
-        {
-            let totalDataBytes = new Uint8Array();
-            let hasText = message.length > 0;
-            let hasFile = fileData !== null;
-
-            if ( !hasText && !hasFile )
-            {
-                showMessage( 'No data to encode.' );
-                return;
-            }
-
-            // Prepare text data
-            if ( hasText )
-            {
-                const messageEncoded = encodeText( message );
-                const textLengthBuffer = new ArrayBuffer( 4 );
-                new DataView( textLengthBuffer ).setUint32( 0, messageEncoded.length );
-                const textBytes = new Uint8Array( [
-                    ...new Uint8Array( textLengthBuffer ),
-                    ...messageEncoded
-                ] );
-                totalDataBytes = hasFile
-                    ? new Uint8Array( [ ...textBytes ] )
-                    : textBytes;
-            }
-
-            // Prepare file data
-            if ( hasFile )
-            {
-                const fileInput = uploadFileInput;
-                const file = fileInput.files[ 0 ];
-                const fileName = file.name;
-                const mimeType = file.type;
-                const fileNameBytes = encodeText( fileName );
-                const mimeTypeBytes = encodeText( mimeType );
-                const fileContentBytes = new Uint8Array( fileData );
-
-                const fileBytes = new Uint8Array( [
-                    fileNameBytes.length,
-                    ...fileNameBytes,
-                    mimeTypeBytes.length,
-                    ...mimeTypeBytes,
-                    ...fileContentBytes
-                ] );
-
-                if ( hasText )
-                {
-                    // Append fileBytes to totalDataBytes
-                    const combinedLength = totalDataBytes.length + fileBytes.length;
-                    const combinedBytes = new Uint8Array( combinedLength );
-                    combinedBytes.set( totalDataBytes, 0 );
-                    combinedBytes.set( fileBytes, totalDataBytes.length );
-                    totalDataBytes = combinedBytes;
-                } else
-                {
-                    totalDataBytes = fileBytes;
-                }
-            }
-
-            // If password is provided, encrypt the combined data
-            if ( password )
-            {
-                try
-                {
-                    totalDataBytes = await encryptData( totalDataBytes, password );
-                } catch ( error )
-                {
-                    showMessage( 'Encryption failed. Please try again.', true );
-                    return;
-                }
-            }
-
-            // Get selected channels and bit depth
-            const selectedChannels = getSelectedChannels();
-            const bitDepth = getBitDepth();
-
-            // Prepare header with new settings
-            let header = {
-                hasText: hasText,
-                hasFile: hasFile,
-                encrypted: password ? true : false,
-                dataLength: totalDataBytes.length,
-                channels: selectedChannels,
-                bitDepth: bitDepth
-            };
-
-            let headerString = JSON.stringify( header );
-            let headerBytes = encodeText( headerString );
-            let headerLength = headerBytes.length;
-
-            // Ensure header length fits in one byte
-            if ( headerLength > 255 )
-            {
-                showMessage( 'Header is too large.', true );
-                return;
-            }
-
-            // Encode header length and header bytes into LSB of selected channels
-            let dataIndex = 0;
-            const totalHeaderBits = ( 1 + headerLength ) * 8; // 1 byte for length + header bytes
-
-            for ( let bit = 7; bit >= 0; bit-- )
-            {
-                let bitValue = ( headerLength >> bit ) & 1;
-                data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
-                dataIndex += 4; // Move to the next channel based on encoding strategy
-            }
-
-            for ( let i = 0; i < headerLength; i++ )
-            {
-                let byte = headerBytes[ i ];
-                for ( let bit = 7; bit >= 0; bit-- )
-                {
-                    let bitValue = ( byte >> bit ) & 1;
-                    data[ dataIndex ] = ( data[ dataIndex ] & ~1 ) | bitValue;
-                    dataIndex += 4;
-                }
-            }
-
-            // Align dataIndex to next multiple of bitsPerPixel
-            const bitsPerPixel = selectedChannels.length * bitDepth;
-            dataIndex = Math.ceil( dataIndex / 4 ) * 4;
-
-            // Calculate total required bits for data
-            const totalRequiredBits = totalDataBytes.length * 8;
-            const totalAvailableBits = ( data.length / 4 - dataIndex / 4 ) * bitsPerPixel;
-
-            if ( totalRequiredBits > totalAvailableBits )
-            {
-                showMessage( 'Data size exceeds maximum capacity of the image.', true );
-                return;
-            }
-
-            // Generate channel-bit positions based on selected channels and bit depth
-            let channelBitPositions = [];
-            for ( let channel of selectedChannels )
-            {
-                for ( let bit = 0; bit < bitDepth; bit++ )
-                {
-                    channelBitPositions.push( { channel, bit } );
-                }
-            }
-
-            // Encode data using selected settings
-            let bitPosIndex = 0;
-            for ( let i = 0; i < totalDataBytes.length; i++ )
-            {
-                let byte = totalDataBytes[ i ];
-                for ( let bit = 7; bit >= 0; bit-- )
-                {
-                    let bitValue = ( byte >> bit ) & 1;
-
-                    let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
-                    let bitWithinPixel = bitPosIndex % bitsPerPixel;
-                    let { channel, bit: channelBit } = channelBitPositions[ bitWithinPixel ];
-
-                    let dataIdx = dataIndex + pixelOffset * 4;
-                    let channelIndex = { 'R': 0, 'G': 1, 'B': 2 }[ channel ];
-                    let baseIndex = dataIdx + channelIndex;
-
-                    let bitMask = 1 << channelBit;
-                    data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
-
-                    bitPosIndex++;
-                }
-            }
-
-            // If the fill random data option is enabled, fill the remaining space with random data
-            if ( isFillRandomDataEnabled() )
-            {
-                const remainingBits = totalAvailableBits - totalRequiredBits;
-                const remainingBytes = Math.floor( remainingBits / 8 );
-
-                if ( remainingBytes > 0 )
-                {
-                    const randomBytes = generateRandomBytes( remainingBytes );
-                    for ( let i = 0; i < randomBytes.length; i++ )
-                    {
-                        let byte = randomBytes[ i ];
-                        for ( let bit = 7; bit >= 0; bit-- )
-                        {
-                            let bitValue = ( byte >> bit ) & 1;
-
-                            let pixelOffset = Math.floor( bitPosIndex / bitsPerPixel );
-                            let bitWithinPixel = bitPosIndex % bitsPerPixel;
-                            let { channel, bit: channelBit } = channelBitPositions[ bitWithinPixel ];
-
-                            let dataIdx = dataIndex + pixelOffset * 4;
-                            let channelIndex = { 'R': 0, 'G': 1, 'B': 2 }[ channel ];
-                            let baseIndex = dataIdx + channelIndex;
-
-                            let bitMask = 1 << channelBit;
-                            data[ baseIndex ] = ( data[ baseIndex ] & ~bitMask ) | ( bitValue << channelBit );
-
-                            bitPosIndex++;
-                        }
-                    }
-                }
-            }
         }
 
         async function generateKey ( password, salt )
@@ -1095,8 +1072,9 @@
             const messageSize = parseInt( messageSizeSpan.textContent ) || 0;
             const fileSize = parseInt( fileSizeSpan.textContent ) || 0;
             let totalDataSize = messageSize + fileSize;
-            const password = document.getElementById('passwordInput').value;
-            if (password) {
+            const password = document.getElementById( 'passwordInput' ).value;
+            if ( password )
+            {
                 totalDataSize += 44; // 16 bytes salt + 12 bytes iv + 16 bytes tag
             }
             totalDataSizeSpan.textContent = totalDataSize;
