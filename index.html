@@ -934,6 +934,7 @@ console.log('MIME Type Length:', mimeTypeBytes.length);
             try
             {
                 binaryData = await decryptData( dataBytes, pwd );
+                console.log("binaryData decrypted");
             } catch ( e )
             {
                 showMessage( 'Failed to decrypt data. Please check the password or data integrity.' );
@@ -1010,12 +1011,16 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
             const salt = crypto.getRandomValues( new Uint8Array( 16 ) );
             const iv = crypto.getRandomValues( new Uint8Array( 12 ) );
             const key = await generateKey( password, salt );
+
+            
             const encrypted = await crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv: iv },
                 key,
                 data
             );
             const ciphertext = new Uint8Array( encrypted );
+
+                        console.log("encryptdebug",salt,iv,ciphertext)
 
             // Concatenate salt + iv + ciphertext
             const combinedData = new Uint8Array( salt.length + iv.length + ciphertext.length );
@@ -1031,8 +1036,9 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
             const salt = encryptedData.slice( 0, 16 );
             const iv = encryptedData.slice( 16, 28 );
             const ciphertext = encryptedData.slice( 28 );
-
+            console.log("decryptdebug",salt,iv,ciphertext)
             const key = await generateKey( password, salt );
+            console.log("decryptkey", key);
             try
             {
                 const decrypted = await crypto.subtle.decrypt(
@@ -1040,6 +1046,7 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
                     key,
                     ciphertext
                 );
+                console.log("decryptdebugdecrypt: here")
                 return new Uint8Array( decrypted );
             } catch ( e )
             {
