@@ -1300,12 +1300,15 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
                         // Compute and render the difference image
                         renderDifferenceImage( originalImageData, encodedImageData );
 
-                        const encodedImage = canvas.toDataURL( 'image/png' );
-                        //const downloadLink = document.getElementById( 'downloadLink' );
+                    canvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
                         downloadLink.style.display = 'inline';
-                        downloadLink.href = encodedImage;
+                        downloadLink.href = url;
                         downloadLink.download = 'encoded-image.png';
                         downloadLink.textContent = 'Download Encoded Image';
+                    }, 'image/png');
+
+                        
                         showMessage( 'Encoding completed successfully!', false );
                         // Automatically show the images section after encoding
                         if ( !imagesSection.classList.contains( 'show' ) )
