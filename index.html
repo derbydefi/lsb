@@ -1046,10 +1046,11 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
                     key,
                     ciphertext
                 );
-                console.log("decryptdebugdecrypt: here")
+                console.log("decryptdebugdecrypt:successssss here")
                 return new Uint8Array( decrypted );
             } catch ( e )
             {
+                console.error('Decryption failed:', e);
                 throw new Error( 'Incorrect password or corrupted data.' );
             }
         }
