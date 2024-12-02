@@ -700,6 +700,11 @@
                 const mimeType = file.type;
                 const fileNameBytes = encodeText( fileName );
                 const mimeTypeBytes = encodeText( mimeType );
+
+                // Log the lengths
+console.log('File Name Length:', fileNameBytes.length);
+console.log('MIME Type Length:', mimeTypeBytes.length);
+                
                 const fileContentBytes = new Uint8Array( fileData );
 
                 const fileBytes = new Uint8Array( [
@@ -968,6 +973,10 @@
                     mimeType,
                     content: fileContent
                 };
+
+                // Log the lengths
+console.log('Decoded File Name Length:', fileNameLength);
+console.log('Decoded MIME Type Length:', mimeTypeLength);
             }
 
             return result;
