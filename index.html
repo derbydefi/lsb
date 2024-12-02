@@ -646,7 +646,7 @@
             {
                 const chunkSize = Math.min( MAX_BYTES, size - generated );
                 const chunk = new Uint8Array( chunkSize );
-                crypto.getRandomValues( chunk );
+                window.crypto.getRandomValues( chunk );
                 bytes.set( chunk, generated );
                 generated += chunkSize;
             }
@@ -985,14 +985,14 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
 
         async function generateKey ( password, salt )
         {
-            const keyMaterial = await crypto.subtle.importKey(
+            const keyMaterial = await window.crypto.subtle.importKey(
                 'raw',
                 encodeText( password ),
                 { name: 'PBKDF2' },
                 false,
                 [ 'deriveKey' ]
             );
-            return crypto.subtle.deriveKey(
+            return window.crypto.subtle.deriveKey(
                 {
                     name: 'PBKDF2',
                     salt: salt,
@@ -1008,12 +1008,12 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
 
         async function encryptData ( data, password )
         {
-            const salt = crypto.getRandomValues( new Uint8Array( 16 ) );
-            const iv = crypto.getRandomValues( new Uint8Array( 12 ) );
+            const salt = window.crypto.getRandomValues( new Uint8Array( 16 ) );
+            const iv = window.crypto.getRandomValues( new Uint8Array( 12 ) );
             const key = await generateKey( password, salt );
 
             
-            const encrypted = await crypto.subtle.encrypt(
+            const encrypted = await window.crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv: iv },
                 key,
                 data
@@ -1041,7 +1041,7 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
             console.log("decryptkey", key);
             try
             {
-                const decrypted = await crypto.subtle.decrypt(
+                const decrypted = await window.crypto.subtle.decrypt(
                     { name: 'AES-GCM', iv: iv },
                     key,
                     ciphertext
