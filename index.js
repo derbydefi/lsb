@@ -389,19 +389,25 @@ async function generateKey(password, salt) {
 }
 
 async function encryptData(data, password) {
+	console.log("encryptData function starting...")
+	console.log("data:",data)
+	console.log("password", password)
+	
 	const salt = window.crypto.getRandomValues(new Uint8Array(16));
 	const iv = window.crypto.getRandomValues(new Uint8Array(12));
 	const key = await generateKey(password, salt);
 
+	console.log("salt:",salt)
+	console.log("iv:",iv)
+	console.log("key:",key)
 	const encrypted = await window.crypto.subtle.encrypt(
 		{ name: "AES-GCM", iv: iv },
 		key,
 		data
 	);
 	const ciphertext = new Uint8Array(encrypted);
-
-	console.log("encryptdebug", salt, iv, ciphertext);
-
+	console.log("ciphertext:", ciphertext)
+	
 	// Concatenate salt + iv + ciphertext
 	const combinedData = new Uint8Array(
 		salt.length + iv.length + ciphertext.length
@@ -409,15 +415,22 @@ async function encryptData(data, password) {
 	combinedData.set(salt, 0);
 	combinedData.set(iv, salt.length);
 	combinedData.set(ciphertext, salt.length + iv.length);
-
+	console.log("combined data:",combinedData)
 	return combinedData;
 }
 
 async function decryptData(encryptedData, password) {
+	console.log("starting decryptData function...")
+	console.log("encryptedData:",encryptedData)
+	console.log("password:",password)
+	
 	const salt = encryptedData.slice(0, 16);
 	const iv = encryptedData.slice(16, 28);
 	const ciphertext = encryptedData.slice(28);
-	console.log("decryptdebug", salt, iv, ciphertext);
+	console.log("salt:",salt)
+	console.log("iv:",iv)
+	console.log("ciphertext:",ciphertext)
+	
 	const key = await generateKey(password, salt);
 	console.log("decryptkey", key);
 	try {
