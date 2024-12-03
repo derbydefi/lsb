@@ -1480,7 +1480,9 @@ console.log('Decoded MIME Type Length:', mimeTypeLength);
         } );
 
         toggleImagesButton.addEventListener( 'click', toggleImagesSection );
-
+console.log('window.isSecureContext:', window.isSecureContext);
+console.log('window.crypto:', window.crypto);
+console.log('window.crypto.subtle:', window.crypto ? window.crypto.subtle : null);
         updateEncodeButtonState();
         updateDecodeButtonState();
     </script>
