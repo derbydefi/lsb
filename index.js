@@ -108,15 +108,33 @@ async function encodeData(data, message, fileData, password) {
 		console.log("File Name Length:", fileNameBytes.length);
 		console.log("MIME Type Length:", mimeTypeBytes.length);
 
+		// Prepare the lengths as 4-byte Uint32
+		const fileNameLengthBuffer = new ArrayBuffer(4);
+		new DataView(fileNameLengthBuffer).setUint32(0, fileNameBytes.length);
+		const mimeTypeLengthBuffer = new ArrayBuffer(4);
+		new DataView(mimeTypeLengthBuffer).setUint32(0, mimeTypeBytes.length);
+
 		const fileContentBytes = new Uint8Array(fileData);
 
-		const fileBytes = new Uint8Array([
-			fileNameBytes.length,
-			...fileNameBytes,
-			mimeTypeBytes.length,
-			...mimeTypeBytes,
-			...fileContentBytes,
-		]);
+		// Now construct fileBytes
+		const fileBytes = new Uint8Array(
+			fileNameLengthBuffer.byteLength +
+				fileNameBytes.length +
+				mimeTypeLengthBuffer.byteLength +
+				mimeTypeBytes.length +
+				fileContentBytes.length
+		);
+
+		let offset = 0;
+		fileBytes.set(new Uint8Array(fileNameLengthBuffer), offset);
+		offset += fileNameLengthBuffer.byteLength;
+		fileBytes.set(fileNameBytes, offset);
+		offset += fileNameBytes.length;
+		fileBytes.set(new Uint8Array(mimeTypeLengthBuffer), offset);
+		offset += mimeTypeLengthBuffer.byteLength;
+		fileBytes.set(mimeTypeBytes, offset);
+		offset += mimeTypeBytes.length;
+		fileBytes.set(fileContentBytes, offset);
 
 		if (hasText) {
 			// Append fileBytes to totalDataBytes
@@ -337,20 +355,25 @@ async function decodeData(data, password) {
 		result.text = message;
 	}
 
-	// Extract file if present
 	if (header.hasFile) {
-		const fileNameLength = binaryData[offset];
-		offset += 1;
+		const fileNameLength = new DataView(binaryData.buffer, offset, 4).getUint32(
+			0
+		);
+		offset += 4;
 		const fileName = decodeText(
 			binaryData.slice(offset, offset + fileNameLength)
 		);
 		offset += fileNameLength;
-		const mimeTypeLength = binaryData[offset];
-		offset += 1;
+
+		const mimeTypeLength = new DataView(binaryData.buffer, offset, 4).getUint32(
+			0
+		);
+		offset += 4;
 		const mimeType = decodeText(
 			binaryData.slice(offset, offset + mimeTypeLength)
 		);
 		offset += mimeTypeLength;
+
 		const fileContent = binaryData.slice(offset);
 		result.file = {
 			fileName,
@@ -389,25 +412,25 @@ async function generateKey(password, salt) {
 }
 
 async function encryptData(data, password) {
-	console.log("encryptData function starting...")
-	console.log("data:",data)
-	console.log("password", password)
-	
+	console.log("encryptData function starting...");
+	console.log("data:", data);
+	console.log("password", password);
+
 	const salt = window.crypto.getRandomValues(new Uint8Array(16));
 	const iv = window.crypto.getRandomValues(new Uint8Array(12));
 	const key = await generateKey(password, salt);
 
-	console.log("salt:",salt)
-	console.log("iv:",iv)
-	console.log("key:",key)
+	console.log("salt:", salt);
+	console.log("iv:", iv);
+	console.log("key:", key);
 	const encrypted = await window.crypto.subtle.encrypt(
 		{ name: "AES-GCM", iv: iv },
 		key,
 		data
 	);
 	const ciphertext = new Uint8Array(encrypted);
-	console.log("ciphertext:", ciphertext)
-	
+	console.log("ciphertext:", ciphertext);
+
 	// Concatenate salt + iv + ciphertext
 	const combinedData = new Uint8Array(
 		salt.length + iv.length + ciphertext.length
@@ -415,22 +438,22 @@ async function encryptData(data, password) {
 	combinedData.set(salt, 0);
 	combinedData.set(iv, salt.length);
 	combinedData.set(ciphertext, salt.length + iv.length);
-	console.log("combined data:",combinedData)
+	console.log("combined data:", combinedData);
 	return combinedData;
 }
 
 async function decryptData(encryptedData, password) {
-	console.log("starting decryptData function...")
-	console.log("encryptedData:",encryptedData)
-	console.log("password:",password)
-	
+	console.log("starting decryptData function...");
+	console.log("encryptedData:", encryptedData);
+	console.log("password:", password);
+
 	const salt = encryptedData.slice(0, 16);
 	const iv = encryptedData.slice(16, 28);
 	const ciphertext = encryptedData.slice(28);
-	console.log("salt:",salt)
-	console.log("iv:",iv)
-	console.log("ciphertext:",ciphertext)
-	
+	console.log("salt:", salt);
+	console.log("iv:", iv);
+	console.log("ciphertext:", ciphertext);
+
 	const key = await generateKey(password, salt);
 	console.log("decryptkey", key);
 	try {
